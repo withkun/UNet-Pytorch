@@ -29,8 +29,8 @@ class UnetDataset(Dataset):
         #-------------------------------#
         #   从文件中读取图像
         #-------------------------------#
-        jpg         = Image.open(os.path.join(os.path.join(self.dataset_path, "VOC2007/JPEGImages"), name + ".jpg"))
-        png         = Image.open(os.path.join(os.path.join(self.dataset_path, "VOC2007/SegmentationClass"), name + ".png"))
+        jpg         = Image.open(os.path.join(os.path.join(self.dataset_path, "JPEGImages"), name + ".jpg"))
+        png         = Image.open(os.path.join(os.path.join(self.dataset_path, "SegmentationClass"), name + ".png"))
         #-------------------------------#
         #   数据增强
         #-------------------------------#
@@ -89,15 +89,15 @@ class UnetDataset(Dataset):
             nh = int(nw/new_ar)
         image = image.resize((nw,nh), Image.BICUBIC)
         label = label.resize((nw,nh), Image.NEAREST)
-        
+
         #------------------------------------------#
         #   翻转图像
         #------------------------------------------#
         flip = self.rand()<.5
-        if flip: 
+        if flip:
             image = image.transpose(Image.FLIP_LEFT_RIGHT)
             label = label.transpose(Image.FLIP_LEFT_RIGHT)
-        
+
         #------------------------------------------#
         #   将图像多余的部分加上灰条
         #------------------------------------------#
@@ -131,7 +131,7 @@ class UnetDataset(Dataset):
 
         image_data = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val)))
         image_data = cv2.cvtColor(image_data, cv2.COLOR_HSV2RGB)
-        
+
         return image_data, label
 
 # DataLoader中collate_fn使用
