@@ -3,6 +3,7 @@
 #   整合到了一个py文件中，通过指定mode进行模式的修改。
 #----------------------------------------------------#
 import time
+import argparse
 
 import cv2
 import numpy as np
@@ -10,7 +11,49 @@ from PIL import Image
 
 from unet import Unet_ONNX, Unet
 
+def get_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description='UNet predict on images')
+    #---------------------------------#
+    #   cuda    是否使用CUDA
+    #           没有GPU可以设置成False
+    #---------------------------------#
+    parser.add_argument('--cuda', type=bool, default=True, help='True for CUDA, False for CPU')
+    # -------------------------------------------------------------------#
+    #   model_path指向logs文件夹下的权值文件
+    #   训练好后logs文件夹下存在多个权值文件，选择验证集损失较低的即可。
+    #   验证集损失较低不代表miou较高，仅代表该权值在验证集上泛化性能较好。
+    # -------------------------------------------------------------------#
+    parser.add_argument('--model-path', type=str, default='logs/best_epoch_weights.pth', help='model path for predict')
+    # --------------------------------#
+    #   所需要区分的类的个数+1
+    # --------------------------------#
+    parser.add_argument('--num-classes', type=int, default=2, help='Number of instances class')
+    # --------------------------------#
+    #   所使用的的主干网络：vgg、resnet50
+    # --------------------------------#
+    parser.add_argument('--backbone', type=str, default='vgg', help='backbone network(vgg/resnet50)')
+    # --------------------------------#
+    #   输入图片的大小
+    # --------------------------------#
+    parser.add_argument('--input-shape', type=list, default=[512,512], help='Target image size for predict')
+    # -------------------------------------------------#
+    #   mix_type参数用于控制检测结果的可视化方式
+    #
+    #   mix_type = 0的时候代表原图与生成的图进行混合
+    #   mix_type = 1的时候代表仅保留生成的图
+    #   mix_type = 2的时候代表仅扣去背景，仅保留原图中的目标
+    # -------------------------------------------------#
+    parser.add_argument('--mix-type', type=int, default=0, help='visualize for predict')
+    # --------------------------------------------------------------------------#
+    #   onnx_path指向model_data文件夹下的onnx权值文件
+    # -------------------------------------------------------------------#
+    parser.add_argument('--onnx-path', type=str, default='model_data/models.onnx', help='ONNX model path')
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    args = get_args()
     #-------------------------------------------------------------------------#
     #   如果想要修改对应种类的颜色，到__init__函数里修改self.colors即可
     #-------------------------------------------------------------------------#
@@ -31,7 +74,7 @@ if __name__ == "__main__":
     #   count、name_classes仅在mode='predict'时有效
     #-------------------------------------------------------------------------#
     count           = False
-    name_classes    = ["background","aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+    name_classes    = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
     # name_classes    = ["background","cat","dog"]
     #----------------------------------------------------------------------------------------------------------#
     #   video_path          用于指定视频的路径，当video_path=0时表示检测摄像头
@@ -49,7 +92,7 @@ if __name__ == "__main__":
     #----------------------------------------------------------------------------------------------------------#
     #   test_interval       用于指定测量fps的时候，图片检测的次数。理论上test_interval越大，fps越准确。
     #   fps_image_path      用于指定测试的fps图片
-    #   
+    #
     #   test_interval和fps_image_path仅在mode='fps'有效
     #----------------------------------------------------------------------------------------------------------#
     test_interval = 100
@@ -57,7 +100,7 @@ if __name__ == "__main__":
     #-------------------------------------------------------------------------#
     #   dir_origin_path     指定了用于检测的图片的文件夹路径
     #   dir_save_path       指定了检测完图片的保存路径
-    #   
+    #
     #   dir_origin_path和dir_save_path仅在mode='dir_predict'时有效
     #-------------------------------------------------------------------------#
     dir_origin_path = "img/"
@@ -70,9 +113,18 @@ if __name__ == "__main__":
     onnx_save_path  = "model_data/models.onnx"
 
     if mode != "predict_onnx":
-        unet = Unet()
+        unet = Unet(model_path    = args.model_path,
+                    num_classes   = args.num_classes,
+                    backbone      = args.backbone,
+                    input_shape   = args.input_shape,
+                    mix_type      = args.mix_type,
+                    cuda          = args.cuda)
     else:
-        yolo = Unet_ONNX()
+        yolo = Unet_ONNX(onnx_path    = args.onnx_path,
+                         num_classes  = args.num_classes,
+                         backbone     = args.backbone,
+                         input_shape  = args.input_shape,
+                         mix_type     = args.mix_type)
 
     if mode == "predict":
         '''
@@ -125,13 +177,13 @@ if __name__ == "__main__":
             frame = np.array(unet.detect_image(frame))
             # RGBtoBGR满足opencv显示格式
             frame = cv2.cvtColor(frame,cv2.COLOR_RGB2BGR)
-            
+
             fps  = ( fps + (1./(time.time()-t1)) ) / 2
             print("fps= %.2f"%(fps))
             frame = cv2.putText(frame, "fps= %.2f"%(fps), (0, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            
+
             cv2.imshow("video",frame)
-            c= cv2.waitKey(1) & 0xff 
+            c= cv2.waitKey(1) & 0xff
             if video_save_path!="":
                 out.write(frame)
 
@@ -149,7 +201,7 @@ if __name__ == "__main__":
         img = Image.open('img/street.jpg')
         tact_time = unet.get_FPS(img, test_interval)
         print(str(tact_time) + ' seconds, ' + str(1/tact_time) + 'FPS, @batch_size 1')
-        
+
     elif mode == "dir_predict":
         import os
         from tqdm import tqdm
@@ -165,7 +217,7 @@ if __name__ == "__main__":
                 r_image.save(os.path.join(dir_save_path, img_name))
     elif mode == "export_onnx":
         unet.convert_to_onnx(simplify, onnx_save_path)
-                
+
     elif mode == "predict_onnx":
         while True:
             img = input('Input image filename:')
