@@ -12,12 +12,27 @@ from PIL import Image
 from unet import Unet_ONNX, Unet
 
 def get_args() -> argparse.Namespace:
+    def str2bool(value):
+      if isinstance(value, bool):
+          return value
+      if value.lower() in ("yes", "true", "t", "y", "1"):
+          return True
+      elif value.lower() in ("no", "false", "f", "n", "0"):
+          return False
+      else:
+          raise argparse.ArgumentTypeError("Boolean value expected")
+
+    def str2list(value):
+        if isinstance(value, int):
+            return value
+        return list(map(int, value.replace(',', ' ').split()))
+
     parser = argparse.ArgumentParser(description='UNet predict on images')
     #---------------------------------#
     #   cuda    是否使用CUDA
     #           没有GPU可以设置成False
     #---------------------------------#
-    parser.add_argument('--cuda', type=bool, default=True, help='True for CUDA, False for CPU')
+    parser.add_argument('--cuda', type=str2bool, default=True, help='True for CUDA, False for CPU')
     # -------------------------------------------------------------------#
     #   model_path指向logs文件夹下的权值文件
     #   训练好后logs文件夹下存在多个权值文件，选择验证集损失较低的即可。
@@ -35,7 +50,7 @@ def get_args() -> argparse.Namespace:
     # --------------------------------#
     #   输入图片的大小
     # --------------------------------#
-    parser.add_argument('--input-shape', type=list, default=[512,512], help='Target image size for predict')
+    parser.add_argument('--input-shape', type=str2list, default=[512,512], help='Target image size for predict')
     # -------------------------------------------------#
     #   mix_type参数用于控制检测结果的可视化方式
     #

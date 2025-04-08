@@ -39,12 +39,27 @@ from utils.utils_fit import fit_one_epoch
    如果只是训练了几个step是不会保存的, epoch和step的概念要捋清楚一下.
 '''
 def get_args() -> argparse.Namespace:
+    def str2bool(value):
+      if isinstance(value, bool):
+          return value
+      if value.lower() in ("yes", "true", "t", "y", "1"):
+          return True
+      elif value.lower() in ("no", "false", "f", "n", "0"):
+          return False
+      else:
+          raise argparse.ArgumentTypeError("Boolean value expected")
+
+    def str2list(value):
+        if isinstance(value, int):
+            return value
+        return list(map(int, value.replace(',', ' ').split()))
+
     parser = argparse.ArgumentParser(description='Train the UNet on images and masks')
     #---------------------------------#
     #   cuda    是否使用CUDA
     #           没有GPU可以设置成False
     #---------------------------------#
-    parser.add_argument('--cuda', type=bool, default=True, help='True for CUDA, False for CPU')
+    parser.add_argument('--cuda', type=str2bool, default=True, help='True for CUDA, False for CPU')
     #----------------------------------------------#
     #   seed    用于固定随机种子
     #           使得每次独立训练都可以获得一样的结果
@@ -61,16 +76,16 @@ def get_args() -> argparse.Namespace:
     #       设置            distributed = True
     #       在终端中输入    CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --nproc_per_node=2 train.py
     #---------------------------------------------------------------------#
-    parser.add_argument('--distributed', type=bool, default=False, help='For multiple card distribute')
+    parser.add_argument('--distributed', type=str2bool, default=False, help='For multiple card distribute')
     #---------------------------------------------------------------------#
     #   sync_bn     是否使用sync_bn, DDP模式多卡可用
     #---------------------------------------------------------------------#
-    parser.add_argument('--sync-bn', type=bool, default=False, help='sync_bn mode for DDP')
+    parser.add_argument('--sync-bn', type=str2bool, default=False, help='sync_bn mode for DDP')
     #---------------------------------------------------------------------#
     #   fp16        是否使用混合精度训练
     #               可减少约一半的显存. 需要pytorch1.7.1以上
     #---------------------------------------------------------------------#
-    parser.add_argument('--fp16', type=bool, default=False, help='Enables Automatic Mixed Precision (AMP) training')
+    parser.add_argument('--fp16', type=str2bool, default=False, help='Enables Automatic Mixed Precision (AMP) training')
     #-----------------------------------------------------#
     #   num_classes     训练自己的数据集必须要修改的
     #                   自己需要的分类个数+1, 如2+1
@@ -88,7 +103,7 @@ def get_args() -> argparse.Namespace:
     #                   如果不设置model_path, pretrained = True, 此时仅加载主干开始训练.
     #                   如果不设置model_path, pretrained = False, freeze_train = Fasle, 此时从0开始训练, 且没有冻结主干的过程.
     #----------------------------------------------------------------------------------------------------------------------------#
-    parser.add_argument('--pretrained', type=bool, default=False, help='Training from a pretrained model')
+    parser.add_argument('--pretrained', type=str2bool, default=False, help='Training from a pretrained model')
     #----------------------------------------------------------------------------------------------------------------------------#
     #   权值文件的下载请看README, 可以通过网盘下载. 模型的 预训练权重 对不同数据集是通用的, 因为特征是通用的.
     #   模型的 预训练权重 比较重要的部分是 主干特征提取网络的权值部分, 用于进行特征提取.
@@ -111,7 +126,7 @@ def get_args() -> argparse.Namespace:
     #-----------------------------------------------------#
     #   input_shape     输入图片的大小, 32的倍数
     #-----------------------------------------------------#
-    parser.add_argument('--input-shape', type=list, default=[512,512], help='Target image size for training.')
+    parser.add_argument('--input-shape', type=str2list, default=[512,512], help='Target image size for training.')
 
     #----------------------------------------------------------------------------------------------------------------------------#
     #   训练分为两个阶段, 分别是冻结阶段和解冻阶段. 设置冻结阶段是为了满足机器性能不足的同学的训练需求.
@@ -171,7 +186,7 @@ def get_args() -> argparse.Namespace:
     #   freeze_train    是否进行冻结训练
     #                   默认先冻结主干训练后解冻训练.
     #------------------------------------------------------------------#
-    parser.add_argument('--freeze-train', type=bool, default=True, help='Freeze train')
+    parser.add_argument('--freeze-train', type=str2bool, default=True, help='Freeze train')
 
     #------------------------------------------------------------------#
     #   其它训练参数: 学习率. 优化器. 学习率下降有关
@@ -214,7 +229,7 @@ def get_args() -> argparse.Namespace:
     #   (一)此处获得的mAP为验证集的mAP.
     #   (二)此处设置评估参数较为保守, 目的是加快评估速度.
     #------------------------------------------------------------------#
-    parser.add_argument('--eval-flag', type=bool, default=True, help='eval flag')
+    parser.add_argument('--eval-flag', type=str2bool, default=True, help='eval flag')
     parser.add_argument('--eval-period', type=int, default=5, help='eval period')
 
     #------------------------------#
@@ -227,11 +242,11 @@ def get_args() -> argparse.Namespace:
     #   种类多(十几类)时, 如果batch_size比较大(10以上), 那么设置为True
     #   种类多(十几类)时, 如果batch_size比较小(10以下), 那么设置为False
     #------------------------------------------------------------------#
-    parser.add_argument('--dice-loss', type=bool, default=False, help='dice loss')
+    parser.add_argument('--dice-loss', type=str2bool, default=False, help='dice loss')
     #------------------------------------------------------------------#
     #   是否使用focal loss来防止正负样本不平衡
     #------------------------------------------------------------------#
-    parser.add_argument('--focal-loss', type=bool, default=False, help='focal loss')
+    parser.add_argument('--focal-loss', type=str2bool, default=False, help='focal loss')
     #------------------------------------------------------------------#
     #   num_workers     用于设置是否使用多线程读取数据, 1代表关闭多线程
     #                   开启后会加快数据读取速度, 但是会占用更多内存
@@ -239,12 +254,14 @@ def get_args() -> argparse.Namespace:
     #                   在IO为瓶颈的时候再开启多线程, 即GPU运算速度远大于读取图片的速度.
     #------------------------------------------------------------------#
     parser.add_argument('--num-workers', type=int, default=4, help='num of workers')
+    parser.add_argument('--test', type=int, default=124, help='num of workers')
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = get_args()
+    print(f"===> {args}")
 
     #------------------------------------------------------------------#
     #   init_lr         模型的最大学习率
@@ -268,6 +285,7 @@ if __name__ == "__main__":
     #   设置用到的显卡
     #------------------------------------------------------#
     ngpus_per_node  = torch.cuda.device_count()
+    print(f"===> {args.distributed}")
     if args.distributed:
         dist.init_process_group(backend="nccl")
         local_rank  = int(os.environ["LOCAL_RANK"])
