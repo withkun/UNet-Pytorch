@@ -254,14 +254,13 @@ def get_args() -> argparse.Namespace:
     #                   在IO为瓶颈的时候再开启多线程, 即GPU运算速度远大于读取图片的速度.
     #------------------------------------------------------------------#
     parser.add_argument('--num-workers', type=int, default=4, help='num of workers')
-    parser.add_argument('--test', type=int, default=124, help='num of workers')
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = get_args()
-    print(f"===> {args}")
+    print(f"args: {vars(args)}\n")
 
     #------------------------------------------------------------------#
     #   init_lr         模型的最大学习率
@@ -285,7 +284,6 @@ if __name__ == "__main__":
     #   设置用到的显卡
     #------------------------------------------------------#
     ngpus_per_node  = torch.cuda.device_count()
-    print(f"===> {args.distributed}")
     if args.distributed:
         dist.init_process_group(backend="nccl")
         local_rank  = int(os.environ["LOCAL_RANK"])
