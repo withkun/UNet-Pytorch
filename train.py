@@ -49,7 +49,7 @@ def get_args() -> argparse.Namespace:
       else:
           raise argparse.ArgumentTypeError("Boolean value expected")
 
-    def str2list(value):
+    def str2ints(value):
         if isinstance(value, int):
             return value
         return list(map(int, value.replace(',', ' ').split()))
@@ -126,7 +126,7 @@ def get_args() -> argparse.Namespace:
     #-----------------------------------------------------#
     #   input_shape     输入图片的大小, 32的倍数
     #-----------------------------------------------------#
-    parser.add_argument('--input-shape', type=str2list, default=[512,512], help='Target image size for training.')
+    parser.add_argument('--input-shape', type=str2ints, default=[512,512], help='Target image size for training.')
 
     #----------------------------------------------------------------------------------------------------------------------------#
     #   训练分为两个阶段, 分别是冻结阶段和解冻阶段. 设置冻结阶段是为了满足机器性能不足的同学的训练需求.

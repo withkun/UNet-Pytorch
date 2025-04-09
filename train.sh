@@ -1,5 +1,7 @@
 #!/bin/bash
 
+DATE_TIME=$(date +%Y%m%d%H%M%S)
+
 export CUDA_VISIBLE_DEVICES=0
 
 python train.py     \
