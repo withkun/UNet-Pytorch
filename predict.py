@@ -22,10 +22,15 @@ def get_args() -> argparse.Namespace:
       else:
           raise argparse.ArgumentTypeError("Boolean value expected")
 
-    def str2list(value):
+    def str2ints(value):
         if isinstance(value, int):
             return value
         return list(map(int, value.replace(',', ' ').split()))
+
+    def str2strs(value):
+        if isinstance(value, int):
+            return value
+        return list(map(str, value.replace(',', ' ').split()))
 
     parser = argparse.ArgumentParser(description='UNet predict on images')
 
@@ -39,6 +44,14 @@ def get_args() -> argparse.Namespace:
     #   'predict_onnx'      表示利用导出的onnx模型进行预测，相关参数的修改在unet.py_346行左右处的Unet_ONNX
     #----------------------------------------------------------------------------------------------------------#
     parser.add_argument('--mode', type=str, default='predict', help='mode(predict/video/fps/dir_predict/export_onnx/predict_onnx)')
+    #-------------------------------------------------------------------------#
+    #   count               指定了是否进行目标的像素点计数（即面积）与比例计算
+    #   name_classes        区分的种类，和json_to_dataset里面的一样，用于打印种类和数量
+    #
+    #   count、name_classes仅在mode='predict'时有效
+    #-------------------------------------------------------------------------#
+    parser.add_argument('--count', type=str2bool, default=False, help='use pixel to calculate ratio')
+    parser.add_argument('--name-classes', type=str2strs, default=['background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus', 'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike', 'person', 'pottedplant', 'sheep', 'sofa', 'train', 'tvmonitor'], help='name of classes')
     #---------------------------------#
     #   cuda    是否使用CUDA
     #           没有GPU可以设置成False
@@ -61,7 +74,7 @@ def get_args() -> argparse.Namespace:
     # --------------------------------#
     #   输入图片的大小
     # --------------------------------#
-    parser.add_argument('--input-shape', type=str2list, default=[512,512], help='Target image size for predict')
+    parser.add_argument('--input-shape', type=str2ints, default=[512,512], help='Target image size for predict')
     # -------------------------------------------------#
     #   mix_type参数用于控制检测结果的可视化方式
     #
@@ -82,7 +95,6 @@ def get_args() -> argparse.Namespace:
     #-------------------------------------------------------------------------#
     parser.add_argument('--dir-input-path', type=str, default='img', help='predict input path')
     parser.add_argument('--dir-output-path', type=str, default='output', help='predict output path')
-
     #-------------------------------------------------------------------------#
     #   simplify            使用Simplify onnx
     #   onnx_save_path      指定了onnx的保存路径
@@ -96,18 +108,11 @@ def get_args() -> argparse.Namespace:
 if __name__ == "__main__":
     args = get_args()
     print(f"args: {vars(args)}\n")
+
     #-------------------------------------------------------------------------#
     #   如果想要修改对应种类的颜色，到__init__函数里修改self.colors即可
     #-------------------------------------------------------------------------#
-    #-------------------------------------------------------------------------#
-    #   count               指定了是否进行目标的像素点计数（即面积）与比例计算
-    #   name_classes        区分的种类，和json_to_dataset里面的一样，用于打印种类和数量
-    #
-    #   count、name_classes仅在mode='predict'时有效
-    #-------------------------------------------------------------------------#
-    count           = False
-    name_classes    = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
-    # name_classes    = ["background","cat","dog"]
+
     #----------------------------------------------------------------------------------------------------------#
     #   video_path          用于指定视频的路径，当video_path=0时表示检测摄像头
     #                       想要检测视频，则设置如video_path = "xxx.mp4"即可，代表读取出根目录下的xxx.mp4文件。
@@ -167,7 +172,7 @@ if __name__ == "__main__":
                 print('Open Error! Try again!')
                 continue
             else:
-                r_image = unet.detect_image(image, count=count, name_classes=name_classes)
+                r_image = unet.detect_image(image, count=args.count, name_classes=args.name_classes)
                 r_image.show()
 
     elif args.mode == "video":
@@ -230,7 +235,7 @@ if __name__ == "__main__":
             if img_name.lower().endswith(('.bmp', '.dib', '.png', '.jpg', '.jpeg', '.pbm', '.pgm', '.ppm', '.tif', '.tiff')):
                 image_path  = os.path.join(args.dir_input_path, img_name)
                 image       = Image.open(image_path)
-                r_image     = unet.detect_image(image)
+                r_image     = unet.detect_image(image, count=args.count, name_classes=args.name_classes)
                 if not os.path.exists(args.dir_output_path):
                     os.makedirs(args.dir_output_path)
                 r_image.save(os.path.join(args.dir_output_path, img_name))
