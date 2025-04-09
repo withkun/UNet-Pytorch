@@ -28,6 +28,17 @@ def get_args() -> argparse.Namespace:
         return list(map(int, value.replace(',', ' ').split()))
 
     parser = argparse.ArgumentParser(description='UNet predict on images')
+
+    #----------------------------------------------------------------------------------------------------------#
+    #   mode用于指定测试的模式：
+    #   'predict'           表示单张图片预测，如果想对预测过程进行修改，如保存图片，截取对象等，可以先看下方详细的注释
+    #   'video'             表示视频检测，可调用摄像头或者视频进行检测，详情查看下方注释。
+    #   'fps'               表示测试fps，使用的图片是img里面的street.jpg，详情查看下方注释。
+    #   'dir_predict'       表示遍历文件夹进行检测并保存。默认遍历img文件夹，保存img_out文件夹，详情查看下方注释。
+    #   'export_onnx'       表示将模型导出为onnx，需要pytorch1.7.1以上。
+    #   'predict_onnx'      表示利用导出的onnx模型进行预测，相关参数的修改在unet.py_346行左右处的Unet_ONNX
+    #----------------------------------------------------------------------------------------------------------#
+    parser.add_argument('--mode', type=str, default='predict', help='mode(predict/video/fps/dir_predict/export_onnx/predict_onnx)')
     #---------------------------------#
     #   cuda    是否使用CUDA
     #           没有GPU可以设置成False
@@ -63,25 +74,31 @@ def get_args() -> argparse.Namespace:
     #   onnx_path指向model_data文件夹下的onnx权值文件
     # -------------------------------------------------------------------#
     parser.add_argument('--onnx-path', type=str, default='model_data/models.onnx', help='ONNX model path')
+    #-------------------------------------------------------------------------#
+    #   dir_input_path      指定了用于检测的图片的文件夹路径
+    #   dir_output_path     指定了检测完图片的保存路径
+    #
+    #   dir_input_path和dir_output_path仅在mode='dir_predict'时有效
+    #-------------------------------------------------------------------------#
+    parser.add_argument('--dir-input-path', type=str, default='input', help='predict input path')
+    parser.add_argument('--dir-output-path', type=str, default='output', help='predict output path')
+
+    #-------------------------------------------------------------------------#
+    #   simplify            使用Simplify onnx
+    #   onnx_save_path      指定了onnx的保存路径
+    #-------------------------------------------------------------------------#
+    parser.add_argument('--simplify', type=str2bool, default=True, help='simplify for export onnx')
+    parser.add_argument('--onnx-save-path', type=str, default='model_data/models.onnx', help='onnx output path')
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
     args = get_args()
+    print(f"args: {vars(args)}\n")
     #-------------------------------------------------------------------------#
     #   如果想要修改对应种类的颜色，到__init__函数里修改self.colors即可
     #-------------------------------------------------------------------------#
-    #----------------------------------------------------------------------------------------------------------#
-    #   mode用于指定测试的模式：
-    #   'predict'           表示单张图片预测，如果想对预测过程进行修改，如保存图片，截取对象等，可以先看下方详细的注释
-    #   'video'             表示视频检测，可调用摄像头或者视频进行检测，详情查看下方注释。
-    #   'fps'               表示测试fps，使用的图片是img里面的street.jpg，详情查看下方注释。
-    #   'dir_predict'       表示遍历文件夹进行检测并保存。默认遍历img文件夹，保存img_out文件夹，详情查看下方注释。
-    #   'export_onnx'       表示将模型导出为onnx，需要pytorch1.7.1以上。
-    #   'predict_onnx'      表示利用导出的onnx模型进行预测，相关参数的修改在unet.py_346行左右处的Unet_ONNX
-    #----------------------------------------------------------------------------------------------------------#
-    mode = "predict"
     #-------------------------------------------------------------------------#
     #   count               指定了是否进行目标的像素点计数（即面积）与比例计算
     #   name_classes        区分的种类，和json_to_dataset里面的一样，用于打印种类和数量
@@ -112,22 +129,9 @@ if __name__ == "__main__":
     #----------------------------------------------------------------------------------------------------------#
     test_interval = 100
     fps_image_path  = "img/street.jpg"
-    #-------------------------------------------------------------------------#
-    #   dir_origin_path     指定了用于检测的图片的文件夹路径
-    #   dir_save_path       指定了检测完图片的保存路径
-    #
-    #   dir_origin_path和dir_save_path仅在mode='dir_predict'时有效
-    #-------------------------------------------------------------------------#
-    dir_origin_path = "img/"
-    dir_save_path   = "img_out/"
-    #-------------------------------------------------------------------------#
-    #   simplify            使用Simplify onnx
-    #   onnx_save_path      指定了onnx的保存路径
-    #-------------------------------------------------------------------------#
-    simplify        = True
-    onnx_save_path  = "model_data/models.onnx"
 
-    if mode != "predict_onnx":
+
+    if args.mode != 'predict_onnx':
         unet = Unet(model_path    = args.model_path,
                     num_classes   = args.num_classes,
                     backbone      = args.backbone,
@@ -141,7 +145,7 @@ if __name__ == "__main__":
                          input_shape  = args.input_shape,
                          mix_type     = args.mix_type)
 
-    if mode == "predict":
+    if args.mode == 'predict':
         '''
         predict.py有几个注意点
         1、该代码无法直接进行批量预测，如果想要批量预测，可以利用os.listdir()遍历文件夹，利用Image.open打开图片文件进行预测。
@@ -166,7 +170,7 @@ if __name__ == "__main__":
                 r_image = unet.detect_image(image, count=count, name_classes=name_classes)
                 r_image.show()
 
-    elif mode == "video":
+    elif args.mode == "video":
         capture=cv2.VideoCapture(video_path)
         if video_save_path!="":
             fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -212,28 +216,29 @@ if __name__ == "__main__":
             out.release()
         cv2.destroyAllWindows()
 
-    elif mode == "fps":
+    elif args.mode == "fps":
         img = Image.open('img/street.jpg')
         tact_time = unet.get_FPS(img, test_interval)
         print(str(tact_time) + ' seconds, ' + str(1/tact_time) + 'FPS, @batch_size 1')
 
-    elif mode == "dir_predict":
+    elif args.mode == "dir_predict":
         import os
         from tqdm import tqdm
 
-        img_names = os.listdir(dir_origin_path)
+        img_names = os.listdir(args.dir_input_path)
         for img_name in tqdm(img_names):
             if img_name.lower().endswith(('.bmp', '.dib', '.png', '.jpg', '.jpeg', '.pbm', '.pgm', '.ppm', '.tif', '.tiff')):
-                image_path  = os.path.join(dir_origin_path, img_name)
+                image_path  = os.path.join(args.dir_input_path, img_name)
                 image       = Image.open(image_path)
                 r_image     = unet.detect_image(image)
-                if not os.path.exists(dir_save_path):
-                    os.makedirs(dir_save_path)
-                r_image.save(os.path.join(dir_save_path, img_name))
-    elif mode == "export_onnx":
-        unet.convert_to_onnx(simplify, onnx_save_path)
+                if not os.path.exists(args.dir_output_path):
+                    os.makedirs(args.dir_output_path)
+                r_image.save(os.path.join(args.dir_output_path, img_name))
 
-    elif mode == "predict_onnx":
+    elif args.mode == "export_onnx":
+        unet.convert_to_onnx(args.simplify, args.onnx_save_path)
+
+    elif args.mode == "predict_onnx":
         while True:
             img = input('Input image filename:')
             try:
@@ -244,5 +249,7 @@ if __name__ == "__main__":
             else:
                 r_image = yolo.detect_image(image)
                 r_image.show()
+
     else:
         raise AssertionError("Please specify the correct mode: 'predict', 'video', 'fps' or 'dir_predict'.")
+

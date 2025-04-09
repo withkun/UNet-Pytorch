@@ -61,7 +61,8 @@ class Unet(object):
         self.__dict__.update(self._defaults)
         for name, value in kwargs.items():
             setattr(self, name, value)
-        #---------------------------------------------------#
+            self._defaults[name] = value
+            #---------------------------------------------------#
         #   画框设置不同的颜色
         #---------------------------------------------------#
         if self.num_classes <= 21:
