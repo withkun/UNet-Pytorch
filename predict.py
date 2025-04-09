@@ -49,11 +49,11 @@ def get_args() -> argparse.Namespace:
     #   训练好后logs文件夹下存在多个权值文件，选择验证集损失较低的即可。
     #   验证集损失较低不代表miou较高，仅代表该权值在验证集上泛化性能较好。
     # -------------------------------------------------------------------#
-    parser.add_argument('--model-path', type=str, default='logs/best_epoch_weights.pth', help='model path for predict')
+    parser.add_argument('--model-path', type=str, default='model_data/unet_vgg_voc.pth', help='model path for predict')
     # --------------------------------#
     #   所需要区分的类的个数+1
     # --------------------------------#
-    parser.add_argument('--num-classes', type=int, default=2, help='Number of instances class')
+    parser.add_argument('--num-classes', type=int, default=21, help='Number of instances class')
     # --------------------------------#
     #   所使用的的主干网络：vgg、resnet50
     # --------------------------------#
@@ -80,7 +80,7 @@ def get_args() -> argparse.Namespace:
     #
     #   dir_input_path和dir_output_path仅在mode='dir_predict'时有效
     #-------------------------------------------------------------------------#
-    parser.add_argument('--dir-input-path', type=str, default='input', help='predict input path')
+    parser.add_argument('--dir-input-path', type=str, default='img', help='predict input path')
     parser.add_argument('--dir-output-path', type=str, default='output', help='predict output path')
 
     #-------------------------------------------------------------------------#
